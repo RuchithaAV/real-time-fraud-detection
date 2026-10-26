@@ -1,0 +1,17 @@
+{
+  "model_name": "LightGBM_Fraud_Detector_v1",
+  "features": [
+    "amount",
+    "oldbalanceOrg",
+    "oldbalanceDest",
+    "is_transfer",
+    "orig_diff",
+    "dest_zero",
+    "orig_zero",
+    "exact_drain"
+  ],
+  "optimal_threshold": 0.4258,
+  "test_pr_auc": 0.9971,
+  "test_recall": 0.9953,
+  "test_precision": 1.0
+}
