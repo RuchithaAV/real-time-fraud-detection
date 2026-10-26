@@ -85,12 +85,23 @@ The system processes financial transactions in simulated real-time, extracts his
   * Transaction vulnerability profiling: proved **100% of frauds** occur strictly in `TRANSFER` and `CASH_OUT` (zero fraud in `PAYMENT`, `CASH_IN`, `DEBIT`), enabling an early-exit consumer filter for ~56% of traffic.
   * Uncovered post-settlement leakage: 97.5% of frauds wipe sender balance to `$0` (`newbalanceOrig == 0`).
   * Engineered leakage-free pre-transaction feature: $\text{balance\_drain\_ratio} = \frac{\text{amount}}{\text{oldbalanceOrg} + 1.0}$ (fraud median $\approx 1.0$).
-  * Chronological out-of-time split across 95 hours:
-    * **Train**: Steps 1–65 (~68% of data)
-    * **Validation**: Steps 66–80 (~16% of data)
-    * **Test**: Steps 81–95 (~16% of data, held out for final evaluation)
+  * Chronological out-of-time split aligned with 24-hour diurnal business cycles:
+    * **Train**: Steps 1–35 (288,668 rows, 0.138% fraud)
+    * **Validation**: Steps 36–42 (112,178 rows, 0.089% fraud)
+    * **Test**: Steps 43–95 (59,548 rows, 1.081% fraud held out for final evaluation)
 
-- [ ] **Phase 2**: Offline baseline and boosted model (LightGBM), threshold & cost optimization.
+- [x] **Phase 2: Offline Baseline, LightGBM, and Cost-Optimized Threshold Selection**
+  * **Baseline Model**: Logistic Regression with `StandardScaler` (fit on Train only) established a performance floor of **0.1422 PR-AUC**, proving linear boundaries fail on multi-condition fraud patterns.
+  * **Feature Engineering**: Diagnosed ratio instability (`oldbalanceOrg == 0`) and engineered robust domain signals: `exact_drain` (penny-exact balance theft), `orig_diff` ($\text{amount} - \text{oldbalanceOrg}$), `dest_zero` (new mule accounts), `orig_zero`, and `is_transfer`.
+  * **Gradient Boosted Classifier (LightGBM)**: Non-linear decision trees jumped PR-AUC from 0.1422 to **0.9706** on the Validation set.
+  * **Business Cost-Matrix Optimization**: Swept decision thresholds against asymmetric loss ($5,000 per missed fraud vs. $25 per false alarm), discovering an optimal alert threshold of **$T^* = 0.4258 \approx 0.43$** (outperforming arbitrary 0.50 cutoff).
+  * **Final Held-Out Test Evaluation (Steps 43–95 / 59,548 transactions)**:
+    * **Test PR-AUC**: **0.9971**
+    * **Recall**: **99.53%** (641 of 644 live frauds intercepted; only 3 missed)
+    * **Precision**: **100.00%** (0 false positives; zero innocent customers declined)
+    * **Alert Rate**: **1.076%** of total stream traffic (within human investigator triage capacity)
+  * **Model Serialization**: Exported production weights to [`models/fraud_detector_lgbm.joblib`](models/fraud_detector_lgbm.joblib) and inference schema to [`models/model_metadata.json`](models/model_metadata.json).
+
 - [ ] **Phase 3**: Streaming-safe feature engineering pipeline ensuring strict offline/online parity.
 - [ ] **Phase 4**: Event-driven transaction replay producer with configurable rate limiting.
 - [ ] **Phase 5**: Scoring consumer integrating Redis state lookups, real-time inference, and state updates.
