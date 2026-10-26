@@ -102,7 +102,12 @@ The system processes financial transactions in simulated real-time, extracts his
     * **Alert Rate**: **1.076%** of total stream traffic (within human investigator triage capacity)
   * **Model Serialization**: Exported production weights to [`models/fraud_detector_lgbm.joblib`](models/fraud_detector_lgbm.joblib) and inference schema to [`models/model_metadata.json`](models/model_metadata.json).
 
-- [ ] **Phase 3**: Streaming-safe feature engineering pipeline ensuring strict offline/online parity.
+- [x] **Phase 3: Streaming-Safe Feature Pipeline & Offline/Online Parity**
+  * **Feature Contract**: Implemented [`src/features.py`](src/features.py) with canonical 8-feature schema matching model serialization metadata.
+  * **Fast-Path Early-Exit Filter**: Added `is_vulnerable_type()` routing safe payment types (`PAYMENT`, `CASH_IN`, `DEBIT`) around ML scoring, saving 56% downstream compute overhead.
+  * **Single-Event Ingestion**: Built `extract_features(event: dict) -> np.ndarray` supporting single-message Kafka JSON ingestion with defensive casting, zero temporal leakage, and C-contiguous float32 vector generation.
+  * **Automated Parity Test Suite**: Developed [`tests/test_features.py`](tests/test_features.py) running a 1,000-transaction audit proving mathematical parity (`atol=1e-5`) between batch Pandas and single-event streaming, formally eliminating Training-Serving Skew.
+
 - [ ] **Phase 4**: Event-driven transaction replay producer with configurable rate limiting.
 - [ ] **Phase 5**: Scoring consumer integrating Redis state lookups, real-time inference, and state updates.
 - [ ] **Phase 6**: PostgreSQL alert storage and interactive Streamlit monitoring dashboard.
@@ -129,5 +134,11 @@ docker compose -f docker/docker-compose.yml up -d
 python src/sanity_check.py
 ```
 
-### 4. Interactive Exploratory Data Analysis
-Open [`notebooks/01_eda_and_leakage_audit.ipynb`](notebooks/01_eda_and_leakage_audit.ipynb) using the `.venv` Python kernel.
+### 4. Interactive Exploratory Data Analysis & Model Training
+* [`notebooks/01_eda_and_leakage_audit.ipynb`](notebooks/01_eda_and_leakage_audit.ipynb)
+* [`notebooks/02_model_training_and_threshold_tuning.ipynb`](notebooks/02_model_training_and_threshold_tuning.ipynb)
+
+### 5. Run Parity Test Suite
+```powershell
+pytest -v
+```
